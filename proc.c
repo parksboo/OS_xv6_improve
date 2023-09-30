@@ -552,18 +552,18 @@ ps(int pid)
     if (!pid)
     {
       if(init_identify){
-        cprintf("name   pid   state   priority\n");
+        cprintf("name       pid   state      priority\n");
         init_identify=0;
       }
-      cprintf("%s    %d    %s    %d\n", p->name, p->pid, states[p->state], p->nicevalue);
+      cprintf("%-10s %-5d %-10s %-10d\n", p->name, p->pid, states[p->state], p->nicevalue);
     }
     else{
       if(p->pid == pid){
         if(init_identify){
-          cprintf("name     pid     state       priority\n");
+          cprintf("name       pid   state      priority\n");
           init_identify=0;
         }
-        cprintf("%s    %d    %s    %d\n", p->name, p->pid, states[p->state], p->nicevalue);
+        cprintf("%-10s %-5d %-10s %-10d\n", p->name, p->pid, states[p->state], p->nicevalue);
       }
     }
   }
@@ -577,7 +577,7 @@ getnice(int pid){
   acquire(&ptable.lock);
   for(p = ptable.proc; (p < &ptable.proc[NPROC])&&(p->pid); p++){
     if(p->pid == pid){
-      cprintf("%d\n", p->nicevalue);
+      //cprintf("%d\n", p->nicevalue);
       release(&ptable.lock);
       return p->nicevalue;
     }
@@ -589,11 +589,14 @@ getnice(int pid){
 int
 setnice(int pid, int value){
     struct proc *p;
+  if (( pid <= 0)||(value>39)||(value<0)){
+    return -1;
+  }
   acquire(&ptable.lock);
   for(p = ptable.proc;p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid){
       p->nicevalue = value;
-      cprintf("%d\n", p->nicevalue);
+      //cprintf("%d\n", p->nicevalue);
       release(&ptable.lock);
       return 0;
     }

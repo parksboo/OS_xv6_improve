@@ -83,3 +83,92 @@ printf(int fd, const char *fmt, ...)
     }
   }
 }
+//printf added 넓이 지정 
+// void printf(int fd, const char *fmt, ...)
+// {
+//     char *s;
+//     int c, i, state;
+//     uint *ap;
+//     int width; // Initialize width here
+
+//     state = 0;
+//     ap = (uint *)(void *)&fmt + 1;
+//     for (i = 0; fmt[i]; i++)
+//     {
+//         c = fmt[i] & 0xff;
+//         if (state == 0)
+//         {
+//             if (c == '%')
+//             {
+//                 width = 0; // Reset width when a % is found
+//                 state = '%';
+//             }
+//             else
+//             {
+//                 putc(fd, c);
+//             }
+//         }
+//         else if (state == '%')
+//         {
+//             if (c >= '0' && c <= '9')
+//             {
+//                 width = width * 10 + (c - '0'); // Parse width
+//                 continue; // Continue to the next character
+//             }
+//             else if (c == 'd')
+//             {
+//                 int num = *ap;
+//                 int len = 0, temp = num;
+//                 if (num == 0)
+//                     len = 1;
+//                 while (temp)
+//                 {
+//                     len++;
+//                     temp /= 10;
+//                 }
+//                 while (len < width)
+//                 {
+//                     putc(fd, ' ');
+//                     len++;
+//                 }
+//                 printint(fd, *ap, 10, 1);
+//                 ap++;
+//             }
+//             else if (c == 'x' || c == 'p')
+//             {
+//                 printint(fd, *ap, 16, 0);
+//                 ap++;
+//             }
+//             else if (c == 's')
+//             {
+//                 s = (char *)*ap;
+//                 ap++;
+//                 if (s == 0)
+//                     s = "(null)";
+//                 int len = strlen(s);
+//                 for (int i = 0; i < width - len; i++)
+//                     putc(fd, ' ');
+//                 while (*s != 0)
+//                 {
+//                     putc(fd, *s);
+//                     s++;
+//                 }
+//             }
+//             else if (c == 'c')
+//             {
+//                 putc(fd, *ap);
+//                 ap++;
+//             }
+//             else if (c == '%')
+//             {
+//                 putc(fd, c);
+//             }
+//             else
+//             {
+//                 putc(fd, '%');
+//                 putc(fd, c);
+//             }
+//             state = 0; // Reset state after processing format specifier
+//         }
+//     }
+// }

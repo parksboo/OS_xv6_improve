@@ -50,13 +50,15 @@ printint(int xx, int base, int sign)
 }
 //PAGEBREAK: 50
 
-// Print to the console. only understands %d, %x, %p, %s.
+// Print to the console. only understands %(n)d, %x, %p, %(n)s.
 void
 cprintf(char *fmt, ...)
 {
   int i, c, locking;
   uint *argp;
   char *s;
+  int width; // edited code
+  int left_justify;  // edited code
 
   locking = cons.locking;
   if(locking)
@@ -71,13 +73,41 @@ cprintf(char *fmt, ...)
       consputc(c);
       continue;
     }
+    width = 0; // edited code
+    left_justify = 0; // edited code
     c = fmt[++i] & 0xff;
+    if(c == '-') { // edited code
+      left_justify = 1;
+      c = fmt[++i] & 0xff;
+    }
+    while(c >= '0' && c <= '9') { // edited code
+      width = width * 10 + (c - '0');
+      c = fmt[++i] & 0xff;
+    }
     if(c == 0)
       break;
     switch(c){
     case 'd':
-      printint(*argp++, 10, 1);
+    {
+      int num = *argp++, len = 0, temp;
+      temp = num;
+      do {
+        len++;
+        temp /= 10;
+      } while(temp);
+      if(!left_justify) // edit code
+        while(len < width) {
+          consputc(' ');
+          len++;
+        }
+      printint(num, 10, 1);
+      if(left_justify) // edit code
+        while(len < width) {
+          consputc(' ');
+          len++;
+        }
       break;
+    }
     case 'x':
     case 'p':
       printint(*argp++, 16, 0);
@@ -85,8 +115,23 @@ cprintf(char *fmt, ...)
     case 's':
       if((s = (char*)*argp++) == 0)
         s = "(null)";
-      for(; *s; s++)
+      int len = 0;
+      char *temp = s;
+      while(*temp != 0) {
+        len++;
+        temp++;
+      }
+      int padding = width > len ? width - len : 0; // edit code
+      if (!left_justify) // edit code
+        for(int i = 0; i < padding; i++)
+          consputc(' ');
+          
+      for (; *s; s++)
         consputc(*s);
+        
+      if (left_justify) // edit code
+        for(int i = 0; i < padding; i++)
+          consputc(' ');
       break;
     case '%':
       consputc('%');
@@ -102,6 +147,58 @@ cprintf(char *fmt, ...)
   if(locking)
     release(&cons.lock);
 }
+////origin of edited code
+// void
+// cprintf(char *fmt, ...)
+// {
+//   int i, c, locking;
+//   uint *argp;
+//   char *s;
+
+//   locking = cons.locking;
+//   if(locking)
+//     acquire(&cons.lock);
+
+//   if (fmt == 0)
+//     panic("null fmt");
+
+//   argp = (uint*)(void*)(&fmt + 1);
+//   for(i = 0; (c = fmt[i] & 0xff) != 0; i++){
+//     if(c != '%'){
+//       consputc(c);
+//       continue;
+//     }
+//     c = fmt[++i] & 0xff;
+//     if(c == 0)
+//       break;
+//     switch(c){
+//     case 'd':
+//       printint(*argp++, 10, 1);
+//       break;
+//     case 'x':
+//     case 'p':
+//       printint(*argp++, 16, 0);
+//       break;
+//     case 's':
+//       if((s = (char*)*argp++) == 0)
+//         s = "(null)";
+//       for(; *s; s++)
+//         consputc(*s);
+//       break;
+//     case '%':
+//       consputc('%');
+//       break;
+//     default:
+//       // Print unknown % sequence to draw attention.
+//       consputc('%');
+//       consputc(c);
+//       break;
+//     }
+//   }
+
+//   if(locking)
+//     release(&cons.lock);
+// }
 
 void
 panic(char *s)

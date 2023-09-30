@@ -12,9 +12,7 @@ main(int argc, char **argv)
     }
 
     int pid = atoi(argv[1]); // Convert argument string to integer
-    printf(1, "%d: ", pid);
-    if (getnice(pid)==-1){
-        printf(1,"wroung input\n");
-    }
+    int result=getnice(pid);
+    printf(1,"%d : %d\n",pid,result);
     exit();
 }
