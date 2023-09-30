@@ -15,6 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int init_identify =1;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -88,6 +89,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->nicevalue = 20;
 
   release(&ptable.lock);
 
@@ -531,4 +533,71 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+void
+ps(int pid)
+{
+  static char *states[] = {
+  [UNUSED]    "UNUSED",
+  [EMBRYO]    "EMBRYO",
+  [SLEEPING]  "SLEEPING",
+  [RUNNABLE]  "RUNBLE",
+  [RUNNING]   "RUNNING",
+  [ZOMBIE]    "ZOMBIE"
+  };
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; (p < &ptable.proc[NPROC])&&(p->pid); p++){
+    if (!pid)
+    {
+      if(init_identify){
+        cprintf("name   pid   state   priority\n");
+        init_identify=0;
+      }
+      cprintf("%s    %d    %s    %d\n", p->name, p->pid, states[p->state], p->nicevalue);
+    }
+    else{
+      if(p->pid == pid){
+        if(init_identify){
+          cprintf("name     pid     state       priority\n");
+          init_identify=0;
+        }
+        cprintf("%s    %d    %s    %d\n", p->name, p->pid, states[p->state], p->nicevalue);
+      }
+    }
+  }
+  init_identify=1;
+  release(&ptable.lock);
+}
+
+int
+getnice(int pid){
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; (p < &ptable.proc[NPROC])&&(p->pid); p++){
+    if(p->pid == pid){
+      cprintf("%d\n", p->nicevalue);
+      release(&ptable.lock);
+      return p->nicevalue;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+}
+
+int
+setnice(int pid, int value){
+    struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc;p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      p->nicevalue = value;
+      cprintf("%d\n", p->nicevalue);
+      release(&ptable.lock);
+      return 0;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }
