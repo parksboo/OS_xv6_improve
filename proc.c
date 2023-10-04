@@ -538,6 +538,8 @@ procdump(void)
 void
 ps(int pid)
 {
+  if(pid<0)
+    return;
   static char *states[] = {
   [UNUSED]    "UNUSED",
   [EMBRYO]    "EMBRYO",

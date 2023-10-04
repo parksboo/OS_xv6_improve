@@ -94,7 +94,7 @@ int
 sys_ps(void)
 {
   int pid;
-  if(argint(0, &pid) < 0)
+  if(argint(0, &pid) < 0 || pid<0)
     return -1;
   ps(pid);
   return 0;
@@ -117,8 +117,6 @@ sys_setnice(void)
   if(argint(0, &pid) < 0)
     return -1;
   if(argint(1, &value) < 0)
-    return -1;
-  if(( pid <= 0)||(value>39)||(value<0))
     return -1;
   return setnice(pid, value);
 }
