@@ -567,8 +567,10 @@ wakeup1(void *chan)
 
 // Wake up all processes sleeping on chan.
 void
-wakeup(void *chan)
-{
+wakeup(void *chan){
+
+  if(!holding(&ptable.lock))
+    panic("sched ptable.lock");  
   acquire(&ptable.lock);
   wakeup1(chan);
   release(&ptable.lock);
