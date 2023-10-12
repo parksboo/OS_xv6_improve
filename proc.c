@@ -6,6 +6,9 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include <stddef.h>
+#include <limits.h>
+
 
 struct {
   struct spinlock lock;
@@ -20,6 +23,23 @@ extern void forkret(void);
 extern void trapret(void);
 
 static void wakeup1(void *chan);
+
+int 
+hc_weight(int nice )
+{
+  int weights[40] = {
+    88761, 71755, 57343, 46273, 36291,
+    29154, 23254, 18705, 14949, 11916,
+    9548,  7620,  6100,  4904,  3906,
+    3121,  2501,  1991,  1586,  1277,
+    1024,  820,   655,   526,   423,
+    335,   272,   215,   172,   137,
+    110,   87,    70,    56,    45,
+    36,    29,    23,    18,    15
+    };
+    return weights[nice];
+    
+}
 
 void
 pinit(void)
@@ -39,7 +59,7 @@ struct cpu*
 mycpu(void)
 {
   int apicid, i;
-  
+ 
   if(readeflags()&FL_IF)
     panic("mycpu called with interrupts enabled\n");
   
@@ -90,6 +110,10 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   p->nicevalue = 20;
+  p->runtime = 0;
+  p->vruntime =0;
+  p->timeslice=0;
+  p->rt_trace=0;
 
   release(&ptable.lock);
 
@@ -217,6 +241,8 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->nicevalue = curproc->nicevalue;
+  np->vruntime = curproc->vruntime;
 
   release(&ptable.lock);
 
@@ -314,6 +340,59 @@ wait(void)
 }
 
 //PAGEBREAK: 42
+// CFS scheduler
+void 
+scheduler(void)
+{
+    struct proc *p;
+    struct cpu *c = mycpu();
+    struct proc *chosen_p;
+    uint min_vr;
+    int t_weight;
+    int scheduler_latency = 10;
+
+    c->proc = 0;
+
+    for (;;) {
+        sti();
+        acquire(&ptable.lock);
+
+        // If the current process still has timeslice left, let it continue running
+        if (c->proc && c->proc->state == RUNNING && c->proc->rt_trace < c->proc->timeslice) {
+            release(&ptable.lock);
+            continue;
+        }
+
+        chosen_p = NULL;
+        min_vr = UINT_MAX;
+        t_weight = 0;
+
+        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+            if (p->state != RUNNABLE)
+                continue;
+
+            t_weight += hc_weight(p->nicevalue);
+            if (p->vruntime < min_vr) {
+                chosen_p = p;
+                min_vr = p->vruntime;
+            }
+        }
+
+        if (chosen_p) {
+            chosen_p->timeslice = scheduler_latency * hc_weight(chosen_p->nicevalue) / t_weight;
+            c->proc = chosen_p;
+            switchuvm(chosen_p);
+            chosen_p->state = RUNNING;
+            swtch(&(c->scheduler), chosen_p->context);
+            switchkvm();
+        }
+
+        c->proc = 0;
+        release(&ptable.lock);
+    }
+}
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -321,41 +400,46 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
-  c->proc = 0;
+// // xv6 origin scheduler
+// void
+// scheduler(void)
+// {
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+
+
+//   c->proc = 0;
   
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
+//   for(;;){
+//     // Enable interrupts on this processor.
+//     sti();
 
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+//     // Loop over process table looking for process to run.
+//     acquire(&ptable.lock);
+//     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+//       if(p->state != RUNNABLE)
+//         continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+//       // Switch to chosen process.  It is the process's job
+//       // to release ptable.lock and then reacquire it
+//       // before jumping back to us.
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+//       c->proc = p;
+//       switchuvm(p);
+//       p->state = RUNNING;
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
-    release(&ptable.lock);
+//       swtch(&(c->scheduler), p->context);
+//       switchkvm();
 
-  }
-}
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       c->proc = 0;
+//     }
+//     release(&ptable.lock);
+
+//   }
+// }
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
@@ -389,6 +473,7 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
+  myproc()->rt_trace=0;
   sched();
   release(&ptable.lock);
 }
@@ -460,10 +545,24 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
+  uint judge = 0;
+  uint c_weight=1024;
+  uint min_vruntime = UINT_MAX;
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    if(p->state == RUNNABLE && p->vruntime < min_vruntime)
+    {
+      min_vruntime = p->vruntime;
+      c_weight = hc_weight(p->nicevalue);
+      judge = 1; // RUNNABLE 상태의 프로세스가 있음을 표시
+    }
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan)
+    {
       p->state = RUNNABLE;
+      p->vruntime = judge ? min_vruntime-1000*1024/c_weight : 0;
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -554,18 +653,18 @@ ps(int pid)
     if (!pid)
     {
       if(init_identify){
-        cprintf("name       pid   state      priority\n");
+        cprintf("name            pid        state      priority   runtime/weight  runtime         vruntime        tick %d\n",ticks*1000);
         init_identify=0;
       }
-      cprintf("%-10s %-5d %-10s %-10d\n", p->name, p->pid, states[p->state], p->nicevalue);
+      cprintf("%-15s %-10d %-10s %-10d %-15d %-15d %-15u\n", p->name, p->pid, states[p->state], p->nicevalue, 1000*p->runtime/hc_weight(p->nicevalue), p->runtime, p->vruntime);
     }
     else{
       if(p->pid == pid){
         if(init_identify){
-          cprintf("name       pid   state      priority\n");
+          cprintf("name            pid        state      priority   runtime/weight  runtime         vruntime        tick %d\n",ticks*1000);
           init_identify=0;
         }
-        cprintf("%-10s %-5d %-10s %-10d\n", p->name, p->pid, states[p->state], p->nicevalue);
+        cprintf("%-15s %-10d %-10s %-10d %-15d %-15d %-15u\n", p->name, p->pid, states[p->state], p->nicevalue, 1000*p->runtime/hc_weight(p->nicevalue), p->runtime, p->vruntime);
       }
     }
   }

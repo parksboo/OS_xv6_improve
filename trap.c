@@ -48,11 +48,16 @@ trap(struct trapframe *tf)
 
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
+    acquire(&tickslock);
     if(cpuid() == 0){
-      acquire(&tickslock);
       ticks++;
       wakeup(&ticks);
-      release(&tickslock);
+      if(myproc() && myproc()->state == RUNNING){
+        myproc()->rt_trace += 1000;
+        myproc()->runtime += 1000;
+        myproc()->vruntime += 1000*1024/hc_weight(myproc()->nicevalue);
+      }
+    release(&tickslock);
     }
     lapiceoi();
     break;
@@ -103,7 +108,7 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
+     tf->trapno == T_IRQ0+IRQ_TIMER && myproc()->rt_trace >= myproc()->timeslice)
     yield();
 
   // Check if the process has been killed since we yielded

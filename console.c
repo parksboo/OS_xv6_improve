@@ -108,6 +108,28 @@ cprintf(char *fmt, ...)
         }
       break;
     }
+    case 'u':
+    {
+      uint num = (uint)*argp++, len = 0;
+      uint temp = num;
+      do {
+        len++;
+        temp /= 10;
+      } while(temp);
+      if(!left_justify) 
+        while(len < width) {
+          consputc(' ');
+          len++;
+        }
+      printint(num, 10, 0); // assuming printint can handle unsigned values. Last argument signifies no sign.
+      if(left_justify)
+        while(len < width) {
+          consputc(' ');
+          len++;
+        }
+      break;
+    }
+
     case 'x':
     case 'p':
       printint(*argp++, 16, 0);

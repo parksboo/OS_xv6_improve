@@ -184,6 +184,7 @@ UPROGS=\
 	_ps\
 	_getnice\
 	_setnice\
+	_test\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

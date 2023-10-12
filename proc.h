@@ -33,6 +33,7 @@ struct context {
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+int hc_weight(int nice );
 
 // Per-process state
 struct proc {
@@ -47,6 +48,10 @@ struct proc {
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   int nicevalue;                 // nice value (0~39, default 20)
+  uint runtime;
+  uint vruntime;
+  int rt_trace;
+  int timeslice;
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
