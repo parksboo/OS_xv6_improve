@@ -546,14 +546,12 @@ wakeup1(void *chan)
 {
   struct proc *p;
   uint judge = 0;
-  uint c_weight=1024;
   uint min_vruntime = UINT_MAX;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == RUNNABLE && p->vruntime < min_vruntime)
     {
       min_vruntime = p->vruntime;
-      c_weight = hc_weight(p->nicevalue);
       judge = 1; // RUNNABLE 상태의 프로세스가 있음을 표시
     }
 
@@ -561,7 +559,7 @@ wakeup1(void *chan)
     if(p->state == SLEEPING && p->chan == chan)
     {
       p->state = RUNNABLE;
-      p->vruntime = judge ? min_vruntime-1000*1024/c_weight : 0;
+      p->vruntime = judge ? min_vruntime-1000*1024/hc_weight(p->nicevalue): 0;
     }
 }
 
