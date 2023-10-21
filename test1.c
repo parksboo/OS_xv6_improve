@@ -27,6 +27,7 @@ int main(void) {
             }
 
             printf(1, "Process %d with nice value %d finished.\n", getpid(), i < 5 ? 0 : 10);
+            ps(0);
             exit();
         }
     }
