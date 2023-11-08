@@ -32,3 +32,9 @@ SYSCALL(uptime)
 SYSCALL(ps)
 SYSCALL(getnice)
 SYSCALL(setnice)
+SYSCALL(mmap)
+SYSCALL(munmap)
+SYSCALL(freemem)
+SYSCALL(pagefault)
+
+

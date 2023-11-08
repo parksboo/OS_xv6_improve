@@ -102,6 +102,10 @@ extern int sys_uptime(void);
 extern int sys_ps(void);
 extern int sys_getnice(void);
 extern int sys_setnice(void);
+extern int sys_mmap(void);
+extern int sys_munmap(void);
+extern int sys_freemem(void);
+extern int sys_pagefault(void);
 
 static int (*syscalls[])(void) = {
     [SYS_fork] sys_fork,
@@ -128,6 +132,10 @@ static int (*syscalls[])(void) = {
     [SYS_ps] sys_ps,
     [SYS_getnice] sys_getnice,
     [SYS_setnice] sys_setnice,
+    [SYS_mmap] sys_mmap,
+    [SYS_munmap] sys_munmap,
+    [SYS_freemem] sys_freemem,
+    [SYS_pagefault] sys_pagefault,
 };
 
 void syscall(void)
