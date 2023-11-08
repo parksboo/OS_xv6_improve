@@ -214,10 +214,6 @@ int fork(void)
   struct proc *curproc = myproc();
   struct mmap_area *nm;
   struct mmap_area *curmem;
-  if ((curmem = find_proc_mt(curproc)) == 0)
-  {
-    // return -1;
-  }
 
   // Allocate process.
   if ((np = allocproc()) == 0)
